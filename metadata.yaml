@@ -1,0 +1,18 @@
+name: snips-k8s-operator
+display-name: snips.sh
+summary: SSH-powered pastebin with a human-friendly TUI and web UI
+
+description: |
+  A Juju charmed k8s operator for snips.sh a
+  SSH-powered pastebin with a human-friendly TUI and web UI
+
+containers:
+  snips:
+    resource: snips-image
+
+
+resources:
+  snips-image:
+    type: oci-image
+    description: OCI image for snips
+    upstream-source: ghcr.io/robherley/snips.sh
