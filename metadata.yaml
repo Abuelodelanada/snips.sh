@@ -9,7 +9,14 @@ description: |
 containers:
   snips:
     resource: snips-image
+    mounts:
+      - storage: data
+        location: /data
 
+storage:
+  data:
+    type: filesystem
+    description: Mount point in which snips will store data
 
 resources:
   snips-image:
