@@ -16,7 +16,7 @@ juju deploy snips-k8s
 
 ## OCI Images
 
-This charmed operator uses the [oficial image provided by the upstream](https://ghcr.io/robherley/snips.sh).
+This charmed operator uses the [official image provided by the upstream](https://ghcr.io/robherley/snips.sh).
 
 
 ## Contributing

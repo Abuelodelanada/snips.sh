@@ -13,52 +13,33 @@ https://discourse.charmhub.io/t/4208
 """
 
 import logging
+import secrets
+import string
 
 import ops
-from typing import Optional
+from ops.framework import StoredState
 
 # Log messages can be retrieved using juju debug-log
 logger = logging.getLogger(__name__)
-
-VALID_LOG_LEVELS = ["info", "debug", "warning", "error", "critical"]
 
 
 class SnipsK8SOperatorCharm(ops.CharmBase):
     """Charm the service."""
 
+    _log_path: str = "/var/log/snips.log"
+    _port: int = 80
+    _stored = StoredState()
+
     def __init__(self, *args):
         super().__init__(*args)
+        self._stored.set_default(hmac_key="")
         self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
 
     def _on_snips_pebble_ready(self, event: ops.PebbleReadyEvent):
         container = event.workload
         container.add_layer("snips", self._pebble_layer, combine=True)
         container.replan()
         self.unit.status = ops.ActiveStatus()
-
-    def _on_config_changed(self, event: ops.ConfigChangedEvent):
-        log_level = self.model.config["log-level"].lower()
-
-        # Do some validation of the configuration option
-        if log_level in VALID_LOG_LEVELS:
-            # The config is good, so update the configuration of the workload
-            container = self.unit.get_container("snips")
-            # Verify that we can connect to the Pebble API in the workload container
-            if container.can_connect():
-                # Push an updated layer with the new config
-                container.add_layer("snips", self._pebble_layer, combine=True)
-                container.replan()
-
-                logger.debug("Log level for gunicorn changed to '%s'", log_level)
-                self.unit.status = ops.ActiveStatus()
-            else:
-                # We were unable to connect to the Pebble API, so we defer this event
-                event.defer()
-                self.unit.status = ops.WaitingStatus("waiting for Pebble API")
-        else:
-            # In this case, the config option is bad, so block the charm and notify the operator.
-            self.unit.status = ops.BlockedStatus("invalid log level: '{log_level}'")
 
     @property
     def _pebble_layer(self):
@@ -69,16 +50,34 @@ class SnipsK8SOperatorCharm(ops.CharmBase):
                 "snips": {
                     "override": "replace",
                     "summary": "snips",
-                    "command": "/usr/bin/snips.sh",
+                    "command": '/bin/sh -c "/usr/bin/snips.sh | tee {}"'.format(self._log_path),
                     "startup": "enabled",
-                    "environment": {
-                        "SNIPS_DEBUG": True,
-                        "SNIPS_ENABLEGUESSER": True,
-                    },
+                    "environment": self._env_vars,
                 }
             },
         }
 
+    @property
+    def _env_vars(self) -> dict:
+        env_vars = {
+            "SNIPS_DEBUG": True,
+            "SNIPS_HMACKEY": self._hmac_key,
+        }
+
+        return env_vars
+
+    @property
+    def _hmac_key(self) -> str:
+        if not self._stored.hmac_key:  # type: ignore[truthy-function]
+            self._stored.hmac_key = self._generate_hmac_key()
+
+        return self._stored.hmac_key  # type: ignore
+
+    def _generate_hmac_key(self) -> str:
+        """Generate a random 24 character symmetric key used to sign URLs."""
+        chars = string.ascii_letters + string.digits
+        return "".join(secrets.choice(chars) for _ in range(24))
+
 
 if __name__ == "__main__":  # pragma: nocover
-    ops.main(SnipsK8SOperatorCharm)
+    ops.main(SnipsK8SOperatorCharm, use_juju_for_storage=True)
