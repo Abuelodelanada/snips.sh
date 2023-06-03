@@ -5,7 +5,7 @@ This repository contains the source code for a Charmed Operator that drives [sni
 snips.sh is a passwordless, anonymous SSH-powered pastebin with a human-friendly TUI and web UI.
 
 
-## Usage
+## Deployment
 
 Assuming you have access to a bootstrapped Juju controller on Kubernetes, you can simply:
 
@@ -55,6 +55,26 @@ traefik/0*  active    idle   10.1.75.61
 Relation provider  Requirer       Interface  Type     Message
 traefik:ingress    snips:ingress  ingress    regular
 ```
+
+## Usage
+
+Now you can create your pastebins by simply:
+
+```shell
+$ cat src/charm.py | ssh 10.1.75.27 -p 2222
+Pseudo-terminal will not be allocated because stdin is not a terminal.
+Enter passphrase for key '/home/jose/.ssh/id_rsa':
+
+┃ File Uploaded 📤
+┃ id: 1s3bKy2V7q
+┃ size: 5.6 kB • type: python • visibility: public
+
+┃ SSH 📠
+┃ ssh f:1s3bKy2V7q@localhost -p 2222
+┃ URL 🔗
+┃ http://snips-snips.mysnips.sh:80/f/1s3bKy2V7q
+```
+
 
 ## OCI Images
 
