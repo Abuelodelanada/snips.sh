@@ -1,7 +1,15 @@
-# This file configures Charmcraft.
-# See https://juju.is/docs/sdk/charmcraft-config for guidance.
+name: snips-k8s-operator
+summary: SSH-powered pastebin with a human-friendly TUI and web UI
+
+description: |
+  A Juju charmed k8s operator for snips.sh a
+  SSH-powered pastebin with a human-friendly TUI and web UI
 
 type: charm
+assumes:
+  - k8s-api
+  - juju >= 3.5.0
+
 bases:
   - build-on:
     - name: ubuntu
@@ -9,3 +17,30 @@ bases:
     run-on:
     - name: ubuntu
       channel: "22.04"
+
+containers:
+  snips:
+    resource: snips-image
+    mounts:
+      - storage: data
+        location: /data
+
+storage:
+  data:
+    type: filesystem
+    description: Mount point in which snips will store data
+
+resources:
+  snips-image:
+    type: oci-image
+    description: OCI image for snips
+    upstream-source: ghcr.io/robherley/snips.sh:v0.3.2
+
+requires:
+  ingress:
+    interface: ingress
+    limit: 1
+    description: |
+      Snips typically needs a "per app" ingress, which is available in the traefik charm[1].
+
+      [1] https://charmhub.io/traefik-k8s
