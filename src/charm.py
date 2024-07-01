@@ -135,4 +135,4 @@ class SnipsK8SOperatorCharm(CharmBase):
 
 
 if __name__ == "__main__":  # pragma: nocover
-    main(SnipsK8SOperatorCharm, use_juju_for_storage=True)
+    main(SnipsK8SOperatorCharm)
