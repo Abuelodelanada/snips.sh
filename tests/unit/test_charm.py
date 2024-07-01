@@ -28,7 +28,7 @@ class TestCharm(unittest.TestCase):
                 "snips": {
                     "override": "replace",
                     "summary": "snips",
-                    "command": '/bin/sh -c "/usr/bin/snips.sh | tee /var/log/snips.log"',
+                    "command": "/usr/bin/snips.sh",
                     "startup": "enabled",
                     "environment": {
                         "SNIPS_DEBUG": True,

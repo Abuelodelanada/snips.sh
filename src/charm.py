@@ -28,33 +28,34 @@ from ops.model import (
     MaintenanceStatus,
     SecretNotFoundError,
 )
-from ops.pebble import ChangeError, Layer
+from ops.pebble import ChangeError
+from snips import CONTAINER_NAME, HTTP_PORT, Snips
 
 # Log messages can be retrieved using juju debug-log
 logger = logging.getLogger(__name__)
+
+LAYER_NAME = CONTAINER_NAME
+SERVICE_NAME = CONTAINER_NAME
 
 
 class SnipsK8SOperatorCharm(CharmBase):
     """Charm the service."""
 
-    _log_path: str = "/var/log/snips.log"
-    _http_port: int = 8080
-    _ssh_port: int = 2222
-    _container_name = _layer_name = _service_name = "snips"
-
     def __init__(self, *args):
         super().__init__(*args)
-        self.container = self.unit.get_container(self._container_name)
-        self.ingress = IngressPerAppRequirer(self, port=self._http_port, strip_prefix=True)
-        self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
-        self.framework.observe(self.ingress.on.ready, self._handle_ingress)
-        self.framework.observe(self.ingress.on.revoked, self._handle_ingress)
+        self._container = self.unit.get_container(CONTAINER_NAME)
+        self._ingress = IngressPerAppRequirer(self, port=HTTP_PORT, strip_prefix=True)
+        self._snips = Snips(self._container, self._ingress, self._hmac_key)
 
-    def _on_snips_pebble_ready(self, event: PebbleReadyEvent):
+        self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
+        self.framework.observe(self._ingress.on.ready, self._handle_ingress)
+        self.framework.observe(self._ingress.on.revoked, self._handle_ingress)
+
+    def _on_snips_pebble_ready(self, _: PebbleReadyEvent):
         self._common_exit_hook()
 
     def _handle_ingress(self, _):
-        if url := self.ingress.url:
+        if url := self._ingress.url:
             logger.info("Ingress is ready: '%s'.", url)
         else:
             logger.info("Ingress revoked.")
@@ -62,7 +63,7 @@ class SnipsK8SOperatorCharm(CharmBase):
 
     def _common_exit_hook(self) -> None:
         """Event processing hook that is common to all events to ensure idempotency."""
-        if not self.container.can_connect():
+        if not self._container.can_connect():
             self.unit.status = MaintenanceStatus("Waiting for pod startup to complete")
             return
 
@@ -90,55 +91,23 @@ class SnipsK8SOperatorCharm(CharmBase):
         Returns:
           True if anything changed; False otherwise
         """
-        overlay = self._pebble_layer
-        plan = self.container.get_plan()
+        overlay = self._snips.pebble_layer
+        plan = self._container.get_plan()
 
-        if self._service_name not in plan.services or overlay.services != plan.services:
-            self.container.add_layer(self._layer_name, overlay, combine=True)
+        if SERVICE_NAME not in plan.services or overlay.services != plan.services:
+            self._container.add_layer(LAYER_NAME, overlay, combine=True)
             try:
-                self.container.replan()
+                self._container.replan()
                 return True
             except ChangeError as e:
                 logger.error(
                     "Failed to replan; pebble plan: %s; %s",
-                    self.container.get_plan().to_dict(),
+                    self._container.get_plan().to_dict(),
                     str(e),
                 )
                 return False
 
         return False
-
-    @property
-    def _pebble_layer(self) -> Layer:
-        return Layer(
-            {
-                "summary": "snips layer",
-                "description": "pebble config layer for snips",
-                "services": {
-                    "snips": {
-                        "override": "replace",
-                        "summary": "snips",
-                        "command": '/bin/sh -c "/usr/bin/snips.sh | tee {}"'.format(
-                            self._log_path
-                        ),
-                        "startup": "enabled",
-                        "environment": self._env_vars,
-                    }
-                },
-            }
-        )
-
-    @property
-    def _env_vars(self) -> dict:
-        env_vars = {
-            "SNIPS_DEBUG": True,
-            "SNIPS_HMACKEY": self._hmac_key,
-        }
-
-        if self.ingress.url:
-            env_vars["SNIPS_HTTP_EXTERNAL"] = self.ingress.url
-
-        return env_vars
 
     @property
     def _hmac_key(self) -> str:
@@ -157,12 +126,12 @@ class SnipsK8SOperatorCharm(CharmBase):
     @property
     def _internal_url(self) -> str:
         """Return the fqdn dns-based in-cluster (private) address."""
-        return f"http://{socket.getfqdn()}:{self._http_port}"
+        return f"http://{socket.getfqdn()}:{HTTP_PORT}"
 
     @property
     def _external_url(self) -> str:
         """Return the externally-reachable (public) address."""
-        return self.ingress.url or self._internal_url
+        return self._ingress.url or self._internal_url
 
 
 if __name__ == "__main__":  # pragma: nocover
