@@ -21,12 +21,12 @@ from urllib.parse import urlparse
 from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer
 from ops import PebbleReadyEvent
 from ops.charm import CharmBase
-from ops.framework import StoredState
 from ops.main import main
 from ops.model import (
     ActiveStatus,
     BlockedStatus,
     MaintenanceStatus,
+    SecretNotFoundError,
 )
 from ops.pebble import ChangeError, Layer
 
@@ -41,11 +41,9 @@ class SnipsK8SOperatorCharm(CharmBase):
     _http_port: int = 8080
     _ssh_port: int = 2222
     _container_name = _layer_name = _service_name = "snips"
-    _stored = StoredState()
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._stored.set_default(hmac_key="")
         self.container = self.unit.get_container(self._container_name)
         self.ingress = IngressPerAppRequirer(self, port=self._http_port, strip_prefix=True)
         self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
@@ -144,10 +142,12 @@ class SnipsK8SOperatorCharm(CharmBase):
 
     @property
     def _hmac_key(self) -> str:
-        if not self._stored.hmac_key:  # type: ignore[truthy-function]
-            self._stored.hmac_key = self._generate_hmac_key()
+        try:
+            secret = self.model.get_secret(label="hmac-key")
+        except SecretNotFoundError:
+            secret = self.app.add_secret({"hmac-key": self._generate_hmac_key()}, label="hmac-key")
 
-        return self._stored.hmac_key  # type: ignore
+        return secret.get_content()["hmac-key"]
 
     def _generate_hmac_key(self) -> str:
         """Generate a random 24 character symmetric key used to sign URLs."""
