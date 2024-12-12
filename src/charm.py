@@ -14,14 +14,21 @@ https://discourse.charmhub.io/t/4208
 
 import logging
 
-from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer
-from ops import PebbleReadyEvent, main
+from charms.traefik_k8s.v1.ingress import (
+    IngressPerAppRequirer,
+)
+from ops import main
 from ops.charm import CharmBase
 from ops.model import ActiveStatus
 
 from secret_manager import SecretManager
 from snips import CONTAINER_NAME, HTTP_PORT, Snips
-from tasks import UpdatePebbleLayerTask, ValidateCanConnectTask, ValidateExternalURLTask
+from tasks import (
+    HandleIngresMessagesTask,
+    UpdatePebbleLayerTask,
+    ValidateCanConnectTask,
+    ValidateExternalURLTask,
+)
 from url_manager import URLManager
 
 # Log messages can be retrieved using juju debug-log
@@ -34,27 +41,18 @@ class SnipsK8SOperatorCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self._container = self.unit.get_container(CONTAINER_NAME)
-        self.secret_manager = SecretManager(self)
+        self._secret_manager = SecretManager(self)
         self._ingress = IngressPerAppRequirer(self, port=HTTP_PORT, strip_prefix=True)
-        self._snips = Snips(self._container, self._ingress, self.secret_manager.hmac_key)
+        self._snips = Snips(self._container, self._ingress, self._secret_manager.hmac_key)
 
-        self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
-        self.framework.observe(self._ingress.on.ready, self._handle_ingress)
-        self.framework.observe(self._ingress.on.revoked, self._handle_ingress)
+        self.framework.observe(self.on.snips_pebble_ready, self._common_exit_hook)
+        self.framework.observe(self._ingress.on.ready, self._common_exit_hook)
+        self.framework.observe(self._ingress.on.revoked, self._common_exit_hook)
 
-    def _on_snips_pebble_ready(self, _: PebbleReadyEvent):
-        self._common_exit_hook()
-
-    def _handle_ingress(self, _):
-        if url := self._ingress.url:
-            logger.info("Ingress is ready: '%s'.", url)
-        else:
-            logger.info("Ingress revoked.")
-        self._common_exit_hook()
-
-    def _common_exit_hook(self) -> None:
+    def _common_exit_hook(self, _) -> None:
         """Event processing hook that is common to all events to ensure idempotency."""
         tasks = [
+            HandleIngresMessagesTask(self._ingress.url, logger),
             ValidateCanConnectTask(self, self._container),
             ValidateExternalURLTask(self, self._external_url, logger),
             UpdatePebbleLayerTask(self._snips),

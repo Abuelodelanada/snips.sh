@@ -28,6 +28,23 @@ class ExitTask(Protocol):
         ...
 
 
+class HandleIngresMessagesTask:
+    """Validate Can Connect task class."""
+
+    def __init__(self, ingress_url, logger):
+        self.ingress_url = ingress_url
+        self.logger = logger
+
+    def execute(self):
+        """Task execution."""
+        if url := self.ingress_url:
+            self.logger.debug("Ingress is ready: '%s'.", url)
+        else:
+            self.logger.debug("Ingress revoked.")
+
+        return True
+
+
 class ValidateCanConnectTask:
     """Validate Can Connect task class."""
 
