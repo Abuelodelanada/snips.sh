@@ -62,9 +62,9 @@ class SnipsK8SOperatorCharm(CharmBase):
         return Snips(self._container, self._ingress, self._secret_manager.hmac_key)
 
     def _observe_events(self):
-        self.framework.observe(self.on.snips_pebble_ready, self._common_exit_hook)
-        self.framework.observe(self._ingress.on.ready, self._common_exit_hook)
-        self.framework.observe(self._ingress.on.revoked, self._common_exit_hook)
+        self.framework.observe(self.on.snips_pebble_ready, self._reconcile)
+        self.framework.observe(self._ingress.on.ready, self._reconcile)
+        self.framework.observe(self._ingress.on.revoked, self._reconcile)
 
     def _task_factory(self):
         return [
@@ -74,7 +74,7 @@ class SnipsK8SOperatorCharm(CharmBase):
             UpdatePebbleLayerTask(self._snips),
         ]
 
-    def _common_exit_hook(self, _) -> None:
+    def _reconcile(self, _) -> None:
         """Event processing hook that is common to all events to ensure idempotency."""
         tasks = self._task_factory()
         for task in tasks:
