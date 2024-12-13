@@ -17,7 +17,7 @@ class URLManager:
     def validate_external_url(external_url: str) -> bool:
         """Validate external url."""
         parsed = urlparse(external_url)
-        return parsed.scheme in ["http", "https"] and parsed.hostname
+        return bool(parsed.scheme in ["http", "https"] and parsed.hostname)
 
     @staticmethod
     def internal_url(http_port: int) -> str:
