@@ -35,7 +35,7 @@ class HandleIngresMessagesTask:
         self.ingress_url = ingress_url
         self.logger = logger
 
-    def execute(self):
+    def execute(self) -> bool:
         """Task execution."""
         if url := self.ingress_url:
             self.logger.debug("Ingress is ready: '%s'.", url)
