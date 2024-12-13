@@ -40,11 +40,16 @@ class SnipsK8SOperatorCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self._initialise_components()
+        self._observe_events()
+
+    def _initialise_components(self):
         self._container = self.unit.get_container(CONTAINER_NAME)
         self._secret_manager = SecretManager(self)
         self._ingress = IngressPerAppRequirer(self, port=HTTP_PORT, strip_prefix=True)
         self._snips = Snips(self._container, self._ingress, self._secret_manager.hmac_key)
 
+    def _observe_events(self):
         self.framework.observe(self.on.snips_pebble_ready, self._common_exit_hook)
         self.framework.observe(self._ingress.on.ready, self._common_exit_hook)
         self.framework.observe(self._ingress.on.revoked, self._common_exit_hook)
