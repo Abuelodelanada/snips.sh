@@ -45,9 +45,21 @@ class SnipsK8SOperatorCharm(CharmBase):
 
     def _initialise_components(self):
         self._container = self.unit.get_container(CONTAINER_NAME)
-        self._secret_manager = SecretManager(self)
-        self._ingress = IngressPerAppRequirer(self, port=HTTP_PORT, strip_prefix=True)
-        self._snips = Snips(self._container, self._ingress, self._secret_manager.hmac_key)
+        self._secret_manager = self._create_secret_manager()
+        self._ingress = self._create_ingress()
+        self._snips = self._create_snips()
+
+    def _create_secret_manager(self):
+        """Create a SecretManager instance."""
+        return SecretManager(self)
+
+    def _create_ingress(self):
+        """Create a IngressPerAppRequirer instance."""
+        return IngressPerAppRequirer(self, port=HTTP_PORT, strip_prefix=True)
+
+    def _create_snips(self):
+        """Create a Snips instance."""
+        return Snips(self._container, self._ingress, self._secret_manager.hmac_key)
 
     def _observe_events(self):
         self.framework.observe(self.on.snips_pebble_ready, self._common_exit_hook)
