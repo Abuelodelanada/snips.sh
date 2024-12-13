@@ -13,6 +13,7 @@ https://discourse.charmhub.io/t/4208
 """
 
 import logging
+from typing import List
 
 from charms.traefik_k8s.v1.ingress import (
     IngressPerAppRequirer,
@@ -25,6 +26,7 @@ from secret_manager import SecretManager
 from snips import CONTAINER_NAME, HTTP_PORT, Snips
 from tasks import (
     HandleIngresMessagesTask,
+    Task,
     UpdatePebbleLayerTask,
     ValidateCanConnectTask,
     ValidateExternalURLTask,
@@ -66,11 +68,13 @@ class SnipsK8SOperatorCharm(CharmBase):
         self.framework.observe(self._ingress.on.ready, self._reconcile)
         self.framework.observe(self._ingress.on.revoked, self._reconcile)
 
-    def _task_factory(self):
+    def _task_factory(self) -> List[Task]:
         return [
             HandleIngresMessagesTask(self._ingress.url, logger),
             ValidateCanConnectTask(self, self._container),
-            ValidateExternalURLTask(self, self._external_url, logger),
+            ValidateExternalURLTask(
+                self, self._ingress.url, URLManager.internal_url(HTTP_PORT), logger
+            ),
             UpdatePebbleLayerTask(self._snips),
         ]
 
@@ -81,11 +85,6 @@ class SnipsK8SOperatorCharm(CharmBase):
             if not task.execute():
                 return
         self.unit.status = ActiveStatus()
-
-    @property
-    def _external_url(self) -> str:
-        """Return the externally-reachable (public) address."""
-        return self._ingress.url or URLManager.internal_url(HTTP_PORT)
 
 
 if __name__ == "__main__":  # pragma: nocover

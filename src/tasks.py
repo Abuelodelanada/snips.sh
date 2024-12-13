@@ -64,9 +64,9 @@ class ValidateCanConnectTask:
 class ValidateExternalURLTask:
     """Validate External URL task class."""
 
-    def __init__(self, charm, external_url, logger):
+    def __init__(self, charm, ingress_url, internal_url, logger):
         self.charm = charm
-        self.external_url = external_url
+        self.external_url = ingress_url or internal_url
         self.logger = logger
 
     def execute(self) -> bool:
