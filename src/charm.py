@@ -54,14 +54,17 @@ class SnipsK8SOperatorCharm(CharmBase):
         self.framework.observe(self._ingress.on.ready, self._common_exit_hook)
         self.framework.observe(self._ingress.on.revoked, self._common_exit_hook)
 
-    def _common_exit_hook(self, _) -> None:
-        """Event processing hook that is common to all events to ensure idempotency."""
-        tasks = [
+    def _task_factory(self):
+        return [
             HandleIngresMessagesTask(self._ingress.url, logger),
             ValidateCanConnectTask(self, self._container),
             ValidateExternalURLTask(self, self._external_url, logger),
             UpdatePebbleLayerTask(self._snips),
         ]
+
+    def _common_exit_hook(self, _) -> None:
+        """Event processing hook that is common to all events to ensure idempotency."""
+        tasks = self._task_factory()
         for task in tasks:
             if not task.execute():
                 return

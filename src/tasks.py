@@ -17,7 +17,7 @@ from ops.model import (
 from url_manager import URLManager
 
 
-class ExitTask(Protocol):
+class Task(Protocol):
     """Task interface."""
 
     def execute(self) -> bool:
