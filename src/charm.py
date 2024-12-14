@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 class SnipsK8SOperatorCharm(CharmBase):
     """Charm the service."""
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, framework):
+        super().__init__(framework)
         self._initialise_components()
         self._observe_events()
 
