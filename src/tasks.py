@@ -10,11 +10,8 @@
 from typing import Protocol
 
 from ops.model import (
-    BlockedStatus,
     MaintenanceStatus,
 )
-
-from url_manager import URLManager
 
 
 class Task(Protocol):
@@ -26,23 +23,6 @@ class Task(Protocol):
         Return True if the execution is successful otherwise False.
         """
         ...
-
-
-class HandleIngresMessagesTask:
-    """Validate Can Connect task class."""
-
-    def __init__(self, ingress_url, logger):
-        self.ingress_url = ingress_url
-        self.logger = logger
-
-    def execute(self) -> bool:
-        """Task execution."""
-        if url := self.ingress_url:
-            self.logger.debug("Ingress is ready: '%s'.", url)
-        else:
-            self.logger.debug("Ingress revoked.")
-
-        return True
 
 
 class ValidateCanConnectTask:
@@ -58,24 +38,6 @@ class ValidateCanConnectTask:
             self.charm.unit.status = MaintenanceStatus("Waiting for pod startup to complete")
             return False
 
-        return True
-
-
-class ValidateExternalURLTask:
-    """Validate External URL task class."""
-
-    def __init__(self, charm, ingress_url, internal_url, logger):
-        self.charm = charm
-        self.external_url = ingress_url or internal_url
-        self.logger = logger
-
-    def execute(self) -> bool:
-        """Task execution."""
-        if ext_url := self.external_url:
-            if not URLManager.validate_external_url(ext_url):
-                self.logger.error("Invalid external url: '%s'", ext_url)
-                self.charm.unit.status = BlockedStatus(f"Invalid external url: '{ext_url}'")
-                return False
         return True
 
 
