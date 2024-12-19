@@ -5,7 +5,6 @@
 import logging
 from typing import Dict
 
-from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer
 from ops import Container
 from ops.pebble import Layer
 
@@ -20,9 +19,8 @@ SSH_PORT = 2222
 class Snips:
     """Snips workload container facade."""
 
-    def __init__(self, container: Container, ingress: IngressPerAppRequirer, hmac_key: str):
+    def __init__(self, container: Container, hmac_key: str):
         self._container = container
-        self._ingress = ingress
         self._hmac_key = hmac_key
 
     @property
@@ -50,8 +48,4 @@ class Snips:
             "SNIPS_DEBUG": True,
             "SNIPS_HMACKEY": self._hmac_key,
         }
-
-        if self._ingress.url:
-            env_vars["SNIPS_HTTP_EXTERNAL"] = self._ingress.url
-
         return env_vars

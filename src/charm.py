@@ -18,7 +18,6 @@ import socket
 import string
 from urllib.parse import urlparse
 
-from charms.traefik_k8s.v1.ingress import IngressPerAppRequirer
 from ops import PebbleReadyEvent
 from ops.charm import CharmBase
 from ops.main import main
@@ -44,21 +43,11 @@ class SnipsK8SOperatorCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self._container = self.unit.get_container(CONTAINER_NAME)
-        self._ingress = IngressPerAppRequirer(self, port=HTTP_PORT, strip_prefix=True)
-        self._snips = Snips(self._container, self._ingress, self._hmac_key)
+        self._snips = Snips(self._container, self._hmac_key)
 
         self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
-        self.framework.observe(self._ingress.on.ready, self._handle_ingress)
-        self.framework.observe(self._ingress.on.revoked, self._handle_ingress)
 
     def _on_snips_pebble_ready(self, _: PebbleReadyEvent):
-        self._common_exit_hook()
-
-    def _handle_ingress(self, _):
-        if url := self._ingress.url:
-            logger.info("Ingress is ready: '%s'.", url)
-        else:
-            logger.info("Ingress revoked.")
         self._common_exit_hook()
 
     def _common_exit_hook(self) -> None:
@@ -66,20 +55,6 @@ class SnipsK8SOperatorCharm(CharmBase):
         if not self._container.can_connect():
             self.unit.status = MaintenanceStatus("Waiting for pod startup to complete")
             return
-
-        # Make sure the external url is valid
-        if external_url := self._external_url:
-            parsed = urlparse(external_url)
-            if not (parsed.scheme in ["http", "https"] and parsed.hostname):
-                # This shouldn't happen
-                logger.error(
-                    "Invalid external url: '%s'; must include scheme and hostname.",
-                    external_url,
-                )
-                self.unit.status = BlockedStatus(
-                    f"Invalid external url: '{external_url}'; must include scheme and hostname."
-                )
-                return
 
         # Update pebble layer
         self._update_layer()
@@ -127,11 +102,6 @@ class SnipsK8SOperatorCharm(CharmBase):
     def _internal_url(self) -> str:
         """Return the fqdn dns-based in-cluster (private) address."""
         return f"http://{socket.getfqdn()}:{HTTP_PORT}"
-
-    @property
-    def _external_url(self) -> str:
-        """Return the externally-reachable (public) address."""
-        return self._ingress.url or self._internal_url
 
 
 if __name__ == "__main__":  # pragma: nocover
