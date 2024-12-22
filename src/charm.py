@@ -16,7 +16,7 @@ import logging
 import secrets
 import socket
 import string
-from urllib.parse import urlparse
+from typing import Dict
 
 from ops import PebbleReadyEvent
 from ops.charm import CharmBase
@@ -27,12 +27,15 @@ from ops.model import (
     MaintenanceStatus,
     SecretNotFoundError,
 )
-from ops.pebble import ChangeError
-from snips import CONTAINER_NAME, HTTP_PORT, Snips
+from ops.pebble import ChangeError, Layer
 
 # Log messages can be retrieved using juju debug-log
 logger = logging.getLogger(__name__)
 
+
+CONTAINER_NAME = "snips"
+HTTP_PORT = 8080
+SSH_PORT = 2222
 LAYER_NAME = CONTAINER_NAME
 SERVICE_NAME = CONTAINER_NAME
 
@@ -43,8 +46,6 @@ class SnipsK8SOperatorCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self._container = self.unit.get_container(CONTAINER_NAME)
-        self._snips = Snips(self._container, self._hmac_key)
-
         self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
 
     def _on_snips_pebble_ready(self, _: PebbleReadyEvent):
@@ -57,7 +58,10 @@ class SnipsK8SOperatorCharm(CharmBase):
             return
 
         # Update pebble layer
-        self._update_layer()
+        if not self._update_layer():
+            self.unit.status = BlockedStatus("Failed to update pebble layer. Check juju debug-log")
+            return
+
         self.unit.status = ActiveStatus()
 
     def _update_layer(self) -> bool:
@@ -66,7 +70,7 @@ class SnipsK8SOperatorCharm(CharmBase):
         Returns:
           True if anything changed; False otherwise
         """
-        overlay = self._snips.pebble_layer
+        overlay = self.pebble_layer
         plan = self._container.get_plan()
 
         if SERVICE_NAME not in plan.services or overlay.services != plan.services:
@@ -82,7 +86,7 @@ class SnipsK8SOperatorCharm(CharmBase):
                 )
                 return False
 
-        return False
+        return True
 
     @property
     def _hmac_key(self) -> str:
@@ -102,6 +106,33 @@ class SnipsK8SOperatorCharm(CharmBase):
     def _internal_url(self) -> str:
         """Return the fqdn dns-based in-cluster (private) address."""
         return f"http://{socket.getfqdn()}:{HTTP_PORT}"
+
+    @property
+    def pebble_layer(self) -> Layer:
+        """Pebble layer for the snips service."""
+        return Layer(
+            {
+                "summary": "snips layer",
+                "description": "pebble config layer for snips",
+                "services": {
+                    "snips": {
+                        "override": "replace",
+                        "summary": "snips",
+                        "command": "/usr/bin/snips.sh",
+                        "startup": "enabled",
+                        "environment": self._env_vars,
+                    }
+                },
+            }
+        )
+
+    @property
+    def _env_vars(self) -> Dict:
+        env_vars = {
+            "SNIPS_DEBUG": True,
+            "SNIPS_HMACKEY": self._hmac_key,
+        }
+        return env_vars
 
 
 if __name__ == "__main__":  # pragma: nocover

@@ -8,6 +8,7 @@ from unittest.mock import PropertyMock, patch
 
 import ops
 import ops.testing
+
 from charm import SnipsK8SOperatorCharm
 
 
