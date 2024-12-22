@@ -14,7 +14,6 @@ https://discourse.charmhub.io/t/4208
 
 import logging
 import secrets
-import socket
 import string
 from typing import Dict
 
@@ -101,11 +100,6 @@ class SnipsK8SOperatorCharm(CharmBase):
         """Generate a random 24 character symmetric key used to sign URLs."""
         chars = string.ascii_letters + string.digits
         return "".join(secrets.choice(chars) for _ in range(24))
-
-    @property
-    def _internal_url(self) -> str:
-        """Return the fqdn dns-based in-cluster (private) address."""
-        return f"http://{socket.getfqdn()}:{HTTP_PORT}"
 
     @property
     def pebble_layer(self) -> Layer:
