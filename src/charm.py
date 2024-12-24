@@ -13,7 +13,6 @@ https://discourse.charmhub.io/t/4208
 """
 
 import logging
-
 from typing import List
 
 from ops import main
