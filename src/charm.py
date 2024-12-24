@@ -47,11 +47,15 @@ class SnipsK8SOperatorCharm(CharmBase):
         self._container = self.unit.get_container(CONTAINER_NAME)
         self.framework.observe(self.on.snips_pebble_ready, self._on_snips_pebble_ready)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.update_status, self._on_update_status)
 
     def _on_snips_pebble_ready(self, _: PebbleReadyEvent):
         self._common_exit_hook()
 
     def _on_config_changed(self, _):
+        self._common_exit_hook()
+
+    def _on_update_status(self, _):
         self._common_exit_hook()
 
     def _common_exit_hook(self) -> None:
